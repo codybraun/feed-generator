@@ -2,6 +2,8 @@ import { InvalidRequestError } from '@atproto/xrpc-server'
 import { Server } from './lexicon'
 import { AppContext } from './config'
 import { validateAuth } from './auth'
+import { SelectExpression } from 'kysely'
+import { sql } from 'kysely'
 
 export default function (server: Server, ctx: AppContext) {
   server.app.bsky.feed.getFeedSkeleton(async ({ params, req }) => {
@@ -25,9 +27,10 @@ export default function (server: Server, ctx: AppContext) {
 
     let builder = ctx.db
       .selectFrom('post')
+      .select(
+        sql<number>`RANDOM() * 600000 + indexedAt`.as('sort_col'))
       .selectAll()
-      .orderBy('indexedAt', 'desc')
-      .orderBy('cid', 'desc')
+      .orderBy('sort_col', 'desc')
       .limit(params.limit)
 
     if (params.cursor) {

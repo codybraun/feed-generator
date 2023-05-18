@@ -9,27 +9,22 @@ export class FirehoseSubscription extends FirehoseSubscriptionBase {
     if (!isCommit(evt)) return
     const ops = await getOpsByType(evt)
 
-    // This logs the text of every post off the firehose.
-    // Just for fun :)
-    // Delete before actually using
-    for (const post of ops.posts.creates) {
-      console.log(post.record.text)
-    }
-
+    const postsToLike = ops.likes.creates.map((like) => like.uri)
     const postsToDelete = ops.posts.deletes.map((del) => del.uri)
     const postsToCreate = ops.posts.creates
       .filter((create) => {
-        // only alf-related posts
-        return create.record.text.toLowerCase().includes('alf')
+        // only return non-replies
+        return create.record.reply === undefined;
       })
       .map((create) => {
-        // map alf-related posts to a db row
+        // map non-reply posts to a db row
         return {
           uri: create.uri,
           cid: create.cid,
           replyParent: create.record?.reply?.parent.uri ?? null,
           replyRoot: create.record?.reply?.root.uri ?? null,
           indexedAt: new Date().toISOString(),
+          likes: 0
         }
       })
 
@@ -39,11 +34,20 @@ export class FirehoseSubscription extends FirehoseSubscriptionBase {
         .where('uri', 'in', postsToDelete)
         .execute()
     }
+
     if (postsToCreate.length > 0) {
       await this.db
         .insertInto('post')
         .values(postsToCreate)
         .onConflict((oc) => oc.doNothing())
+        .execute()
+    }
+
+    if (postsToLike.length > 0) {
+      await this.db
+        .updateTable('post')
+        .set({likes: 1})
+        .where('cid', 'in', postsToLike)
         .execute()
     }
   }

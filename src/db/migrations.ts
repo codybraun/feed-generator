@@ -17,6 +17,7 @@ migrations['001'] = {
       .addColumn('replyParent', 'varchar')
       .addColumn('replyRoot', 'varchar')
       .addColumn('indexedAt', 'varchar', (col) => col.notNull())
+      .addColumn('likes', 'integer', (col) => col.notNull())
       .execute()
     await db.schema
       .createTable('sub_state')
